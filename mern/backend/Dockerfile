@@ -1,5 +1,7 @@
 FROM node:18.9.1
 
+LABEL auther="dhille"
+
 WORKDIR /app
 
 COPY package.json .
