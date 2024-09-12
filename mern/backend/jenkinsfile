@@ -1,0 +1,106 @@
+pipeline {
+    agent any
+
+    environment {
+        SCANNER_HOME=tool 'sonar-scanner'
+        SONAR_TOKEN = credentials('sonar-cloud')
+        DOCKERHUB_CREDENTIALS = 'docker-crd' // Replace with your credentials ID
+        DOCKERHUB_REPO = 'dhillevajja/mern-backend' // Replace with your Docker Hub repository
+        IMAGE_TAG = "${env.BUILD_NUMBER}" // Use the build number as the tag
+    }
+
+    stages {
+
+        stage('Clean Workspace') {
+            steps {
+                cleanWs() // Clean workspace before starting the stages
+            }
+        }
+        stage('git checkout') {
+            steps {
+                git branch: 'prod', url: 'https://github.com/dhille98/MERN.git'
+            }
+        }
+        
+        stage('build') {
+            steps {
+                dir('mern/backend'){
+                    sh 'npm install'
+                }
+                
+                
+            }
+        }
+        
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('sonar-cloud') { // Name of your SonarQube installation
+                    dir('mern/backend') {  // Navigate to the correct path if needed
+                         sh '''$SCANNER_HOME/bin/sonar-scanner \
+                        -Dsonar.projectKey=dhille98_MERN \
+                        -Dsonar.organization=dhille98 \
+                        -Dsonar.host.url=https://sonarcloud.io/ \
+                        -Dsonar.login=$SONAR_TOKEN \
+                        -X''' // Enable debug logging
+                    }
+                }
+            }
+        }
+
+        stage('Quality Check') {
+            steps {
+                script {
+                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar-cloud' 
+                }
+            }
+        }
+
+        stage('Trivy File Scan') {
+            steps {
+                dir('mern/backend') {
+                    sh 'trivy fs . > trivyfs.txt'
+                }
+            }
+        }
+
+        stage('Image Build') {
+            steps {
+                dir('mern/backend'){
+                    script {
+                    echo "Building Docker image with tag: $IMAGE_TAG"
+                    
+                    sh 'docker build -t $DOCKERHUB_REPO:$IMAGE_TAG . '
+                }
+
+                }
+                
+            }
+        }
+
+        stage("TRIVY Image Scan") {
+            steps {
+                sh 'trivy image $DOCKERHUB_REPO:$IMAGE_TAG > trivyimage.txt || exit 1 ' 
+            }
+        }
+
+        stage('Login to Docker Hub') {
+            steps {
+                script {
+                    docker.withRegistry('', DOCKERHUB_CREDENTIALS) {
+                        echo "Logged in to Docker Hub"
+                    }
+                }
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                script {
+                    docker.withRegistry('', DOCKERHUB_CREDENTIALS) {
+                        sh 'docker push $DOCKERHUB_REPO:$IMAGE_TAG'
+                    }
+                }
+            }
+        }
+    }
+}

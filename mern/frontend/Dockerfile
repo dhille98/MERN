@@ -1,23 +1,32 @@
-# Use the official image as a parent image
-# Description: Dockerfile for the client side of the MERN stack application
+# Stage 1: Build the Node.js application
+FROM node:18-alpine AS build
 
-# Use the official image as a parent image
-FROM node:18.9.1
-
-# Set the working directory
+# Set the working directory inside the container
 WORKDIR /app
 
-# Copy the file from your host to your current location
-COPY package.json .
+# Copy the package.json and package-lock.json (if available)
+COPY package*.json ./
 
-# Run the command inside your image filesystem
-RUN npm install
+# Install the dependencies
+RUN npm install --production
 
-# Inform Docker that the container is listening on the specified port at runtime
-EXPOSE 5173
-
-# Copy the rest of your app's source code from your host to your image filesystem
+# Copy the rest of the application source code
 COPY . .
 
-# Run the specified command within the container
-CMD ["npm", "run", "dev"]
+# Build the application (for example, if it's a React app or other built app)
+RUN npm run build
+
+# Stage 2: Production environment
+FROM node:18-alpine AS production
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy only the required files from the build stage
+COPY --from=build /app /app
+
+# Expose the application port (e.g., if it's listening on port 3000)
+EXPOSE 3000
+
+# Start the Node.js application
+CMD ["npm", "start"]
