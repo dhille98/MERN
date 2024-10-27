@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mern-fr-dep
+spec:
+  minReadySeconds: 10
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: 
+      maxSurge: 1  
+      maxUnavailable: 1  
+  selector:
+    matchLabels:
+      app: mern-fr-app
+  template:
+    metadata:
+      labels:
+        app: mern-fr-app
+    spec:
+      containers:
+      - name: mern-app-db
+        image: dhillevajja/mern-fronted:5
+        resources:
+          requests: 
+            memory: "170Mi"
+            cpu: 250m
+          limits:
+            memory: "250Mi"
+            cpu: 350m
+        ports:
+          - containerPort: 5173
+        env:
+          - name: REACT_APP_API_URL
+            value: "http://backend:5050/record/"
+
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mern-fr-svc
+spec:
+  type: NodePort
+  selector:
+    app: mern-fr-app
+  ports:
+  - port: 5173
+    targetPort: 5173
+    nodePort: 32500
+

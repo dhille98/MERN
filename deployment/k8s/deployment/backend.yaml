@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mern-bk-dep
+spec:
+  minReadySeconds: 10
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: 
+      maxSurge: 1  
+      maxUnavailable: 1  
+  selector:
+    matchLabels:
+      app: mern-bk-app
+  template:
+    metadata:
+      labels:
+        app: mern-bk-app
+    spec:
+      containers:
+      - name: mern-app-db
+        image: dhillevajja/mern-backend:1
+        resources:
+          requests: 
+            memory: "170Mi"
+            cpu: 250m
+          limits:
+            memory: "250Mi"
+            cpu: 350m
+        ports:
+          - containerPort: 5050
+        env:
+          - name: MONGO_URI
+            value: "mongodb://mongodb:27017/mydatabase"
+        
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  selector:
+    app: mern-bk-app
+  ports:
+  - protocol: TCP
+    port: 5050
+    targetPort: 5050
+  type: ClusterIP
+
+
